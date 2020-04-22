@@ -54,7 +54,23 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
 
     @Override
     public V get(K key) {
-        return null;
+        int slotIdx=hash(key)&(slotSize-1);
+        locks[slotIdx].lock();
+        try {
+            LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
+            assert slot != null : "slot==null";
+
+            for (HashTableEntry<K, V> entry : slot) {
+                if (entry.getKey() == key) {
+                    // exists
+                    return entry.getValue();
+                }
+            }
+            //not found
+            return null;
+        }finally {
+            locks[slotIdx].unlock();
+        }
     }
 
     @Override

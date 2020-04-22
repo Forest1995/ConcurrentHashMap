@@ -2,10 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="97bbf792-78ac-4552-a24d-40abc8a60129" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/ParallelHashMap/MyConcurrentHashTable/ParallelHashMapWIthChains.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/ParallelHashMap/MyConcurrentHashTable/ParallelHashMapWIthChains.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/ParallelHashMap/ThreadsTest/ThreadsTest1.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/ParallelHashMap/ThreadsTest/ThreadsTest1.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/MyConcurrentHashTable/ParallelHashMapWIthChains.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MyConcurrentHashTable/ParallelHashMapWIthChains.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ThreadsTest/ThreadsTest1.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ThreadsTest/ThreadsTest1.java" afterDir="false" />
     </list>
@@ -80,7 +76,7 @@
       <option name="presentableId" value="Default" />
       <updated>1587348066964</updated>
       <workItem from="1587348070758" duration="1147000" />
-      <workItem from="1587577337594" duration="13824000" />
+      <workItem from="1587577337594" duration="14343000" />
     </task>
     <servers />
   </component>
