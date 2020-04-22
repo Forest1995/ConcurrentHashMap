@@ -9,7 +9,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V> {
     private int slotSize=8;
     private int size=0;
-//    private LinkedList<HashTableEntry<K,V>>[] slots;
     private ArrayList<LinkedList<HashTableEntry<K,V>>> slots;
     private ReentrantLock[] locks;
     public ParallelHashMapWIthChains(){
@@ -19,9 +18,6 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
             slots.add(new LinkedList<HashTableEntry<K, V>>());
             locks[i]=new ReentrantLock();
         }
-
-//        System.out.println(locks[0]);
-//        slots=new LinkedList<HashTableEntry<K,V>>[slotSize];
     }
     @Override
     public int size() {
@@ -35,7 +31,24 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
 
     @Override
     public boolean containsKey(K key) {
-        return false;
+        int hash=hash(key);
+        int slotIdx=hash&(slotSize-1);
+        locks[slotIdx].lock();
+        try {
+            LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
+            assert slot != null : "slot==null";
+
+            for (HashTableEntry<K, V> entry : slot) {
+                if (entry.getKey() == key) {
+                    //exists
+                    return true;
+                }
+            }
+            //not found
+            return false;
+        }finally {
+            locks[slotIdx].unlock();
+        }
     }
 
 
@@ -51,15 +64,11 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     }
     private V putVal(int hash, K key, V value){
         int slotIdx=hash&(slotSize-1);
-//        System.out.println(slotIdx);
         locks[slotIdx].lock();
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
-
             assert slot != null : "slot==null";
 
-//            System.out.println("adding: " + key.toString() + "-" + value.toString());
-//            System.out.println("adding finished");
             for (HashTableEntry<K, V> entry : slot) {
                 if (entry.getKey() == key) {
                     //already exists
@@ -68,8 +77,10 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
                     return temp;
                 }
             }
+
             slot.add(new HashTableEntry<K, V>(key, value));
             slots.set(slotIdx, slot);
+            size++;
             return null;
         }finally {
             locks[slotIdx].unlock();

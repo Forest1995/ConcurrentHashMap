@@ -11,9 +11,13 @@ public class ThreadsTest1 implements Runnable {
     }
     @Override
     public void run() {
-        for(Integer i=0;i<10;i++){
-
-            table.put(threadId*128+i,threadId.toString());
+        for(int i = 0; i<10; i++){
+            int key=threadId*128+i;
+            table.put(key,threadId.toString());
+            boolean query=table.containsKey(key);
+            assert query :"not found";
+            query=table.containsKey(key+1);
+            assert !query:"should not be found!";
         }
 
     }
