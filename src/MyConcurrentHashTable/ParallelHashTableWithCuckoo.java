@@ -3,6 +3,7 @@ package MyConcurrentHashTable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<K, V> {
@@ -13,6 +14,7 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     private HashTableEntry<K, V>[] slots;
     private ReentrantLock[] locks;
     private ReentrantLock sizeLock;
+    private ReentrantLock reHashLock;
     private List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
     private final int tryCount = 10;
 
@@ -22,6 +24,7 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
         hashAlgorithmList.add(new HashAlgorithm(23));
         slots = new HashTableEntry[slotSize];
         locks = new ReentrantLock[slotSize];
+        reHashLock = new ReentrantLock();
         sizeLock = new ReentrantLock();
         for (int i = 0; i < slotSize; i++) {
             locks[i] = new ReentrantLock();
@@ -72,49 +75,58 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public void put(K key, V value) {
-        for (int i = 0; i < tryCount; i++) {
-            for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
-                int hashCode = hashAlgorithm.hashCode(key);
+        while (true) {
+            for (int i = 0; i < tryCount; i++) {
+                for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
+                    int hashCode = hashAlgorithm.hashCode(key);
+                    int slotIdx = hashCode & (slotSize - 1);
+                    locks[slotIdx].lock();
+                    try {
+                        if (slots[slotIdx] == null) {
+                            slots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
+                            sizeLock.lock();
+                            size++;
+                            sizeLock.unlock();
+                            return;
+                        }
+                    } finally {
+                        locks[slotIdx].unlock();
+                    }
+                }
+
+                //执行到这说明 每个位置都有人 进行替换操作
+
+                int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
+                int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
                 int slotIdx = hashCode & (slotSize - 1);
+
                 locks[slotIdx].lock();
                 try {
-                    if (slots[slotIdx] == null) {
-                        slots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
-                        size++;
-                        return ;
-                    }
+                    K oldKey = slots[slotIdx].getKey();                //原本表中这个索引对应的entry
+                    V oldValue = slots[slotIdx].getValue();
+                    slots[slotIdx] = new HashTableEntry(key, value);   //把要插入的entry 放到当前位置上
+                    key = oldKey;
+                    value = oldValue;                                 //现在就是要插入原来替换掉的值
                 } finally {
                     locks[slotIdx].unlock();
                 }
+
             }
 
-            //执行到这说明 算法集合计算的index全部有值 进行替换操作
-
-            int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
-            int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
-            int slotIdx = hashCode & (slotSize - 1);
-
-            locks[slotIdx].lock();
+            reHashLock.lock();
             try {
-                K oldKey = slots[slotIdx].getKey();                //原本表中这个索引对应的entry
-                V oldValue = slots[slotIdx].getValue();
-                slots[slotIdx]= new HashTableEntry(key, value);   //把要插入的entry 放到当前位置上
-                key = oldKey;
-                value = oldValue;                                 //现在就是要插入原来替换掉的值
-            }
-            finally {
-                locks[slotIdx].unlock();
+                if (reHashed || size >= slots.length) {               //说明要进行扩容操作了
+                    reSize();
+                    reHashed = false;
+                } else {
+                    ReHash();                                           //重新计算hash值
+                    reHashed = true;
+                }
+                return;
+            } finally {
+                reHashLock.unlock();
             }
         }
-
-
-        if ( reHashed || size >= slots.length) {               //说明要进行扩容操作了
-//           expandArray();
-            reHashed = false;
-        } else {
-            ReHash();                                           //重新计算hash值
-        }
-        return ;
     }
 
     @Override
@@ -127,6 +139,9 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key)) {
                     V removedValue = slots[slotIdx].getValue();
                     slots[slotIdx] = null;
+                    sizeLock.lock();
+                    size--;
+                    sizeLock.unlock();
                     return removedValue;
                 }
             } finally {
@@ -160,29 +175,27 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private void ReHash() {
         hashAlgorithmList.clear();
-        int one = new Random().nextInt(100);
-        int two = new Random().nextInt(100);
-        two = one == two ? two*2 : two;
+        int one = new Random().nextInt(1000);
+        int two = new Random().nextInt(1000);
+        two = one == two ? two * 2 : two;
         hashAlgorithmList.add(new HashAlgorithm(one));
         hashAlgorithmList.add(new HashAlgorithm(two));
+        ReAssignSlots();
     }
 
-//    private void expandArray() {
-//        rehash(nextPrime(array.length*2));
-//    }
-//
-//    /**
-//     * 重新计算所有的 hash 同时放到表中
-//     * @param length
-//     */
-//    private void rehash(int length) {
-//        String [] oldArray = array;
-//        array = new String[length];
-//        size = 0 ;
-//        for (String string : oldArray) {
-//            if (string != null) {
-//                insert(string);
-//            }
-//        }
+    private void reSize() {
+        slotSize = 2 * slotSize;
+        ReAssignSlots();
+    }
 
+    private void ReAssignSlots() {
+        HashTableEntry<K, V>[] oldSlots = slots;
+        slots = new HashTableEntry[slotSize];
+        size = 0;
+        for (HashTableEntry<K, V> entry : oldSlots) {
+            if (entry != null)
+                put(entry.getKey(), entry.getValue());
+        }
+
+    }
 }
