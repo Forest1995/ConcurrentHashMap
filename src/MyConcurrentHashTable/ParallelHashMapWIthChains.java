@@ -11,9 +11,11 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     private int size=0;
     private ArrayList<LinkedList<HashTableEntry<K,V>>> slots;
     private ReentrantLock[] locks;
+    private ReentrantLock sizeLock;
     public ParallelHashMapWIthChains(){
         slots=new ArrayList<>(slotSize);
         locks=new ReentrantLock[slotSize];
+        sizeLock=new ReentrantLock();
         for(int i=0;i<slotSize;i++){
             slots.add(new LinkedList<HashTableEntry<K, V>>());
             locks[i]=new ReentrantLock();
@@ -96,7 +98,9 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
 
             slot.add(new HashTableEntry<K, V>(key, value));
             slots.set(slotIdx, slot);
+            sizeLock.lock();
             size++;
+            sizeLock.unlock();
             return null;
         }finally {
             locks[slotIdx].unlock();
@@ -106,13 +110,36 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     }
     @Override
     public V remove(K key) {
-        return null;
+        int slotIdx=hash(key)&(slotSize-1);
+        locks[slotIdx].lock();
+        try {
+            LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
+
+            assert slot != null : "slot==null";
+
+            for (HashTableEntry<K, V> entry : slot) {
+                if (entry.getKey() == key) {
+                    //already exists
+                    V temp = entry.getValue();
+                    slot.remove(entry);
+                    sizeLock.lock();
+                    size--;
+                    sizeLock.unlock();
+                    return temp;
+                }
+            }
+
+            return null;
+        }finally {
+            locks[slotIdx].unlock();
+        }
+
     }
 
 
     @Override
     public void clear() {
-
+        //to do
     }
 
     @Override

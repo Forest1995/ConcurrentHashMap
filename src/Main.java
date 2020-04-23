@@ -45,5 +45,6 @@ public class Main {
             System.out.println("Not yet. Still waiting for termination");
         }
         System.out.println(map.toString());;
+        System.out.println(map.size());
     }
 }

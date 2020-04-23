@@ -15,6 +15,7 @@ public class ThreadsTest1 implements Runnable {
             testPutAndContainsKey(i);
             testContrainsNextKey(i);
             testGet(i);
+            testRemove(i);
 
         }
 
@@ -41,5 +42,14 @@ public class ThreadsTest1 implements Runnable {
 
         query=table.get(key+1);
         assert query!=null:"should not be found!";
+    }
+    private void testRemove(int index){
+        int key=threadId*128+index;
+
+        String query=table.remove(key);
+        assert query!=null :"remove not found";
+
+        query=table.remove(key+1);
+        assert query==null:"should not be found!";
     }
 }
