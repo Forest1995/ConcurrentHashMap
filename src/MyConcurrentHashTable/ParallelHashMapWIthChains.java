@@ -86,11 +86,11 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     }
 
     @Override
-    public V put(K key, V value)
+    public void put(K key, V value)
     {
-        return putVal(hash(key),key,value);
+        putVal(hash(key),key,value);
     }
-    private V putVal(int hash, K key, V value){
+    private void putVal(int hash, K key, V value){
         int slotIdx=hash&(slotSize-1);
         locks[slotIdx].lock();
         try {
@@ -100,9 +100,9 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
             for (HashTableEntry<K, V> entry : slot) {
                 if (entry.getKey().equals(key)) {
                     //already exists
-                    V temp = entry.getValue();
+//                    V temp = entry.getValue();
                     entry.setValue(value);
-                    return temp;
+//                    return temp;
                 }
             }
 
@@ -111,10 +111,10 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
             sizeLock.lock();
             size++;
             sizeLock.unlock();
-            return null;
+//            return null;
         }catch (Exception e){
             System.err.println("[putval err]"+e.getMessage());
-            return null;
+//            return null;
         }
         finally {
             locks[slotIdx].unlock();
