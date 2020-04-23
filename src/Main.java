@@ -31,7 +31,7 @@ public class Main {
     }
     public static void poolTest() throws InterruptedException {
         MyConcurrentHashTable<Integer,String> map=new ParallelHashMapWIthChains<Integer,String>();
-        int numThread=3;
+        int numThread=20;
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
 
 
