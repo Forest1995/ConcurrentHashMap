@@ -8,15 +8,16 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private int slotSize = 8;
     private int size = 0;
-    private ArrayList<HashTableEntry<K, V>> slots;
+    private HashTableEntry<K, V>[] slots;
     private ReentrantLock[] locks;
+    private ReentrantLock sizeLock;
     private List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
 
 
     public ParallelHashTableWithCuckoo() {
         hashAlgorithmList.add(new HashAlgorithm(10));
         hashAlgorithmList.add(new HashAlgorithm(23));
-        slots = new ArrayList<>(slotSize);
+        slots = new HashTableEntry[slotSize];
         locks = new ReentrantLock[slotSize];
         for (int i = 0; i < slotSize; i++) {
             locks[i] = new ReentrantLock();
@@ -32,13 +33,12 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     public V get(K key) {
         for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
             int hashCode = hashAlgorithm.hashCode(key);
-            int slotIdx = hashCode & (slotSize-1);
+            int slotIdx = hashCode & (slotSize - 1);
             locks[slotIdx].lock();
-            try{
-                if(slots.get(slotIdx)!=null && slots.get(slotIdx).getKey().equals(key))
-                    return slots.get(slotIdx).getValue();
-            }
-            finally {
+            try {
+                if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
+                    return slots[slotIdx].getValue();
+            } finally {
                 locks[slotIdx].unlock();
             }
         }
@@ -47,20 +47,19 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public boolean isEmpty() {
-        return size==0;
+        return size == 0;
     }
 
     @Override
     public boolean containsKey(K key) {
         for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
             int hashCode = hashAlgorithm.hashCode(key);
-            int slotIdx = hashCode & (slotSize-1);
+            int slotIdx = hashCode & (slotSize - 1);
             locks[slotIdx].lock();
-            try{
-                if(slots.get(slotIdx)!=null&& slots.get(slotIdx).getKey().equals(key))
+            try {
+                if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
                     return true;
-            }
-            finally {
+            } finally {
                 locks[slotIdx].unlock();
             }
         }
@@ -74,12 +73,37 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public V remove(K key) {
+        for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
+            int hashCode = hashAlgorithm.hashCode(key);
+            int slotIdx = hashCode & (slotSize - 1);
+            locks[slotIdx].lock();
+            try {
+                if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key)) {
+                    V removedValue = slots[slotIdx].getValue();
+                    slots[slotIdx] = null;
+                    return removedValue;
+                }
+            } finally {
+                locks[slotIdx].unlock();
+            }
+        }
         return null;
     }
 
     @Override
     public void clear() {
-
+        for(int i=0;i<slotSize;i++){
+            locks[i].lock();
+        }
+        for(int i=0;i<slotSize;i++){
+            slots[i] = null;
+        }
+        sizeLock.lock();
+        size=0;
+        sizeLock.unlock();
+        for(int i=slotSize-1;i>=0;i--){
+            locks[i].unlock();
+        }
     }
 
     @Override
