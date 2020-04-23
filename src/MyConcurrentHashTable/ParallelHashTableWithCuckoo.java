@@ -8,7 +8,7 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private int slotSize = 8;
     private int size = 0;
-    private ArrayList<V> slots;
+    private ArrayList<HashTableEntry<K, V>> slots;
     private ReentrantLock[] locks;
     private List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
 
@@ -30,16 +30,40 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public V get(K key) {
+        for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
+            int hashCode = hashAlgorithm.hashCode(key);
+            int slotIdx = hashCode & (slotSize-1);
+            locks[slotIdx].lock();
+            try{
+                if(slots.get(slotIdx)!=null && slots.get(slotIdx).getKey().equals(key))
+                    return slots.get(slotIdx).getValue();
+            }
+            finally {
+                locks[slotIdx].unlock();
+            }
+        }
         return null;
     }
 
     @Override
     public boolean isEmpty() {
-        return false;
+        return size==0;
     }
 
     @Override
     public boolean containsKey(K key) {
+        for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
+            int hashCode = hashAlgorithm.hashCode(key);
+            int slotIdx = hashCode & (slotSize-1);
+            locks[slotIdx].lock();
+            try{
+                if(slots.get(slotIdx)!=null&& slots.get(slotIdx).getKey().equals(key))
+                    return true;
+            }
+            finally {
+                locks[slotIdx].unlock();
+            }
+        }
         return false;
     }
 
@@ -61,16 +85,5 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     @Override
     public int hash(K key) {
         return 0;
-    }
-}
-
-class HashAlgorithm <K> {
-    private int initNumber;
-    public HashAlgorithm(int initNumber) {
-        this.initNumber = initNumber;
-    }
-
-    public int hashCode(K key) {
-        return  key.hashCode()+ initNumber ;
     }
 }
