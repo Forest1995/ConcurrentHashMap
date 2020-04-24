@@ -40,7 +40,7 @@ public class ThreadsTest2 implements Runnable {
                 testPutAndContainsKey(workload.get(i));
 //                testContrainsNextKey(workload.get(i));
                 testGet(workload.get(i));
-                testRemove(workload.get(i));
+//                testRemove(workload.get(i));
             }
         }catch (Exception e){
             System.err.println(e.getMessage());

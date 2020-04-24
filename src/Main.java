@@ -35,16 +35,17 @@ public class Main {
     public static ArrayList<ArrayList<Integer>> generateDifferentInt(int numThread, int size){
         ArrayList<ArrayList<Integer>> result=new ArrayList<>();
         Random random=new Random();
-        HashSet<Integer> set=new HashSet<>();
+        MyConcurrentHashTable<Integer,Integer> map=new ParallelHashMapWIthChains<Integer, Integer>();
+//        HashSet<Integer> set=new HashSet<>();
         for(int k=0;k<numThread;k++){
             result.add(new ArrayList<>());
             for(int i=0;i<size;i++){
                 int num=random.nextInt();
-                while(set.contains(num)){
+                while(map.containsKey(num)){
                     num=random.nextInt();
                 }
                 result.get(k).add(num);
-                set.add(num);
+                map.put(num,num);
             }
         }
         return result;
