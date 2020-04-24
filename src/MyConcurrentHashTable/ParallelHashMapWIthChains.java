@@ -40,7 +40,20 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         int hash=hash(key);
         int slotIdx=hash&(slotSize-1);
 //        System.out.println("[ContainsKey]:"+slotIdx);
-        locks[slotIdx].lock();
+//        locks[slotIdx].lock();
+        while(!locks[slotIdx].tryLock()){}
+        //get lock now
+        int oldSlotIdx=slotIdx;
+        int curSlotIdx=hash&(slotSize-1);
+        if(slotIdx!=curSlotIdx){ //caused by resizing.
+            slotIdx=curSlotIdx;
+            while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+            //lock new slot and then unlock old. To avoid resizing.
+            locks[oldSlotIdx].unlock();
+        }
+
+
+
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
             assert slot != null : "slot==null";
@@ -69,8 +82,21 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
 
     @Override
     public V get(K key) {
-        int slotIdx=hash(key)&(slotSize-1);
-        locks[slotIdx].lock();
+        int hash=hash(key);
+        int slotIdx=hash&(slotSize-1);
+//        System.out.println("[ContainsKey]:"+slotIdx);
+//        locks[slotIdx].lock();
+        while(!locks[slotIdx].tryLock()){}
+        //get lock now
+        int oldSlotIdx=slotIdx;
+        int curSlotIdx=hash&(slotSize-1);
+        if(slotIdx!=curSlotIdx){ //caused by resizing.
+            slotIdx=curSlotIdx;
+            while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+            //lock new slot and then unlock old. To avoid resizing.
+            locks[oldSlotIdx].unlock();
+        }
+
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
             assert slot != null : "slot==null";
@@ -94,10 +120,24 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         putVal(hash(key),key,value);
     }
     private  void putVal(int hash, K key, V value){
+
+//        int hash=hash(key);
         int slotIdx=hash&(slotSize-1);
-        locks[slotIdx].lock();
+//        System.out.println("[ContainsKey]:"+slotIdx);
+//        locks[slotIdx].lock();
+        while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+        //get lock now
+        int oldSlotIdx=slotIdx;
+        int curSlotIdx=hash&(slotSize-1);
+        if(slotIdx!=curSlotIdx){ //caused by resizing.
+            slotIdx=curSlotIdx;
+            while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+            //lock new slot and then unlock old. To avoid resizing.
+            locks[oldSlotIdx].unlock();
+        }
         int tempSize=0;
         try {
+//            System.out.println("[putval]get slot lock"+slotIdx);
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
             assert slot != null : "slot==null";
 
@@ -106,6 +146,7 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
                     //already exists
 //                    V temp = entry.getValue();
                     entry.setValue(value);
+                    return;
 //                    return temp;
                 }
             }
@@ -113,17 +154,21 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
             slot.add(new HashTableEntry<K, V>(key, value));
             slots.set(slotIdx, slot);
             sizeLock.lock();
+//            System.out.println("[putval]get size lock");
             size++;
             tempSize=size;
             sizeLock.unlock();
+//            System.out.println("[putval]release size lock");
 //            return null;
         }catch (Exception e){
-            System.err.println("[putval err]"+slotSize+e.getMessage());
+//            System.err.println("[putval err]"+slotSize+e.getMessage());
 //            return null;
         }
         finally {
             locks[slotIdx].unlock();
+//            System.out.println("[pulval]release slot lock"+slotIdx);
             if(tempSize>slotSize){
+//                System.out.println("[putval]ready to resize");
                 resize();
             }
         }
@@ -132,29 +177,37 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     }
     private void resize(){
         resizeLock.lock();
+//        System.out.println("[resize]get resize lock");
         try{
 
             sizeLock.lock();
+//            System.out.println("[resize]get size lock");
             if(size<=slotSize){
+                //maybe many threads enter this function at the same time.
+                //when one thread succeeds in resize() and unlock, all other threads should not resize() again.
                 return;
             }else{
-                //now size >slotSize
-                System.out.println("before resize: slotsize="+slotSize+" size="+size);
+                //now size >slotSize, only one thread should do this.
+//                System.out.println("before resize: slotsize="+slotSize+" size="+size);
                 sizeLock.unlock();
+//                System.out.println("[resize]release size lock");
                 //avoid deadlock with clear()
                 for(int i=0;i<slotSize;i++){
                     locks[i].lock();
+//                    System.out.println("[resize]get slot lock"+i);
                 }
                 sizeLock.lock();
-                //lock everything now
+//                System.out.println("[resize]get size lock");
+                //lock [everything] now, including slot lock, sizelock and resizelock. Other threads cannot do anything.
                 slotSize=slotSize*2;
                 //set new locks and new slots
-                locks=new ReentrantLock[slotSize];
-                System.out.println("locks added");
+                ReentrantLock[] newLocks=new ReentrantLock[slotSize];
+//                System.out.println("locks added");
                 ArrayList<LinkedList<HashTableEntry<K,V>>> newSlots=new ArrayList<>();
                 for(int i=0;i<slotSize;i++){
                     newSlots.add(new LinkedList<HashTableEntry<K, V>>());
-                    locks[i]=new ReentrantLock();
+                    newLocks[i]=new ReentrantLock();
+//                    newLocks[i].lock();
                 }
                 //copy
                 for(LinkedList<HashTableEntry<K,V>> slot :slots){
@@ -166,7 +219,8 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
                     }
                 }
                 slots=newSlots;
-                System.out.println("after resize: slotsize="+slotSize+" size="+size);
+                locks=newLocks;
+//                System.out.println("after resize: slotsize="+slotSize+" size="+size);
 
             }
 
@@ -174,13 +228,32 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         }finally {
 
             sizeLock.unlock();
+//            System.out.println("[resize]release size lock");
+
+//            for(int i=slotSize-1;i>=0;i--){
+//                locks[i].unlock();
+//            }
+//            System.out.println("[resize]release slot locks");
             resizeLock.unlock();
+//            System.out.println("[resize]release resize lock");
         }
     }
     @Override
     public V remove(K key) {
-        int slotIdx=hash(key)&(slotSize-1);
-        locks[slotIdx].lock();
+        int hash=hash(key);
+        int slotIdx=hash&(slotSize-1);
+//        System.out.println("[ContainsKey]:"+slotIdx);
+//        locks[slotIdx].lock();
+        while(!locks[slotIdx].tryLock()){}
+        //get lock now
+        int oldSlotIdx=slotIdx;
+        int curSlotIdx=hash&(slotSize-1);
+        if(slotIdx!=curSlotIdx){ //caused by resizing.
+            slotIdx=curSlotIdx;
+            while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+            //lock new slot and then unlock old. To avoid resizing.
+            locks[oldSlotIdx].unlock();
+        }
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
 
