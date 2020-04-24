@@ -7,13 +7,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<K, V> {
 
-    private int slotSize = 8;
-    private int size = 0;
-    private boolean reHashed = false;
-    private HashTableEntry<K, V>[] slots;
-    private ReentrantLock[] locks;
-    private ReentrantLock sizeLock;
-    private List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
+    private volatile int slotSize = 8;
+    private volatile int size = 0;
+    private volatile boolean reHashed = false;
+    private volatile HashTableEntry<K, V>[] slots;
+    private volatile ReentrantLock[] locks;
+    private volatile ReentrantLock sizeLock;
+    private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
     private final int tryCount = 10;
 
 
@@ -117,8 +117,6 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
                 ReHash();                                           //重新计算hash值
                 reHashed = true;
             }
-            return;
-
         }
     }
 
@@ -177,6 +175,7 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     }
 
     private void reSize() {
+
         slotSize = 2 * slotSize;
         locks = new ReentrantLock[slotSize];
         for (int i = 0; i < slotSize; i++) {
@@ -190,11 +189,10 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
         slots = new HashTableEntry[slotSize];
         sizeLock.lock();
         size = 0;
-        sizeLock.unlock();
         for (HashTableEntry<K, V> entry : oldSlots) {
             if (entry != null)
                 put(entry.getKey(), entry.getValue());
         }
-
+        sizeLock.unlock();
     }
 }
