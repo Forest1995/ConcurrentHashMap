@@ -39,20 +39,23 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
     public boolean containsKey(K key) {
         int hash=hash(key);
         int slotIdx=hash&(slotSize-1);
-//        System.out.println("[ContainsKey]:"+slotIdx);
-//        locks[slotIdx].lock();
-        while(!locks[slotIdx].tryLock()){}
-        //get lock now
-        int oldSlotIdx=slotIdx;
-        int curSlotIdx=hash&(slotSize-1);
-        if(slotIdx!=curSlotIdx){ //caused by resizing.
-            slotIdx=curSlotIdx;
+        while(true){
+            //loop until get correct lock
             while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
-            //lock new slot and then unlock old. To avoid resizing.
-            locks[oldSlotIdx].unlock();
+            //now we get one lock, we can safely check the slot now, because resize() cannot execute.
+            int oldSlotIdx=slotIdx;
+            int curSlotIdx=hash&(slotSize-1);
+            //slotIdx can be different from current slotIdx. If this is the case, loop again.
+            if(slotIdx!=curSlotIdx){ //caused by resizing.
+                slotIdx=curSlotIdx;
+                locks[oldSlotIdx].unlock();//unlock wrong slotIdx
+
+            }else{
+                //it didn't change. safe.
+                break;
+            }
         }
-
-
+        //now the slotIdx must be correct. And we have the lock.
 
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
@@ -86,15 +89,22 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         int slotIdx=hash&(slotSize-1);
 //        System.out.println("[ContainsKey]:"+slotIdx);
 //        locks[slotIdx].lock();
-        while(!locks[slotIdx].tryLock()){}
-        //get lock now
-        int oldSlotIdx=slotIdx;
-        int curSlotIdx=hash&(slotSize-1);
-        if(slotIdx!=curSlotIdx){ //caused by resizing.
-            slotIdx=curSlotIdx;
+        while(true){
+            //until get correct lock
             while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
-            //lock new slot and then unlock old. To avoid resizing.
-            locks[oldSlotIdx].unlock();
+            //get one lock, we can safely check the slot now, because resize() cannot execute.
+            int oldSlotIdx=slotIdx;
+            int curSlotIdx=hash&(slotSize-1);
+            //if not correct,unlock and try again.
+            if(slotIdx!=curSlotIdx){ //caused by resizing.
+                slotIdx=curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                //lock new slot and then unlock old. To avoid resizing.
+                locks[oldSlotIdx].unlock();
+
+            }else{
+                break;
+            }
         }
 
         try {
@@ -125,16 +135,26 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         int slotIdx=hash&(slotSize-1);
 //        System.out.println("[ContainsKey]:"+slotIdx);
 //        locks[slotIdx].lock();
-        while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
-        //get lock now
-        int oldSlotIdx=slotIdx;
-        int curSlotIdx=hash&(slotSize-1);
-        if(slotIdx!=curSlotIdx){ //caused by resizing.
-            slotIdx=curSlotIdx;
+        while(true){
+            //until get correct lock
             while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
-            //lock new slot and then unlock old. To avoid resizing.
-            locks[oldSlotIdx].unlock();
+            //get one lock, we can safely check the slot now, because resize() cannot execute.
+            int oldSlotIdx=slotIdx;
+            int curSlotIdx=hash&(slotSize-1);
+            //if not correct,unlock and try again.
+            if(slotIdx!=curSlotIdx){ //caused by resizing.
+                slotIdx=curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                //lock new slot and then unlock old. To avoid resizing.
+                locks[oldSlotIdx].unlock();
+
+            }else{
+                break;
+            }
         }
+
+        //get lock now
+
         int tempSize=0;
         try {
 //            System.out.println("[putval]get slot lock"+slotIdx);
@@ -244,15 +264,22 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
         int slotIdx=hash&(slotSize-1);
 //        System.out.println("[ContainsKey]:"+slotIdx);
 //        locks[slotIdx].lock();
-        while(!locks[slotIdx].tryLock()){}
-        //get lock now
-        int oldSlotIdx=slotIdx;
-        int curSlotIdx=hash&(slotSize-1);
-        if(slotIdx!=curSlotIdx){ //caused by resizing.
-            slotIdx=curSlotIdx;
+        while(true){
+            //until get correct lock
             while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
-            //lock new slot and then unlock old. To avoid resizing.
-            locks[oldSlotIdx].unlock();
+            //get one lock, we can safely check the slot now, because resize() cannot execute.
+            int oldSlotIdx=slotIdx;
+            int curSlotIdx=hash&(slotSize-1);
+            //if not correct,unlock and try again.
+            if(slotIdx!=curSlotIdx){ //caused by resizing.
+                slotIdx=curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                //lock new slot and then unlock old. To avoid resizing.
+                locks[oldSlotIdx].unlock();
+
+            }else{
+                break;
+            }
         }
         try {
             LinkedList<HashTableEntry<K, V>> slot = slots.get(slotIdx);
