@@ -3,7 +3,7 @@ package MyConcurrentHashTable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class ParallelHashTableWithHopscotch<K, V> implements MyConcurrentHashTable<K, V> {
+public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurrentHashTable<K, V> {
     private volatile AtomicInteger size;
     private volatile AtomicInteger slotSize;
     private volatile HashTableEntry<K, V>[] slots;
@@ -13,7 +13,7 @@ public class ParallelHashTableWithHopscotch<K, V> implements MyConcurrentHashTab
     private static final int MAX_DIST = 4;
     private static final double MAX_LOAD = 0.5;
 
-    public ParallelHashTableWithHopscotch() {
+    public ParallelHashTableWithHopscotchLockFree() {
         size = new AtomicInteger(0);
         slotSize = new AtomicInteger(8);
         slots = new HashTableEntry[slotSize.get()];
@@ -166,11 +166,11 @@ public class ParallelHashTableWithHopscotch<K, V> implements MyConcurrentHashTab
         if (pos != -1) {
 //            locks[pos].lock();
 //            try {
-                V removedValue = slots[pos].getValue();
-                slots[pos] = null;
-                distArray[hash].set(distArray[hash].get() - (1 << (MAX_DIST - 1 - pos + hash)));
-                size.getAndDecrement();
-                return removedValue;
+            V removedValue = slots[pos].getValue();
+            slots[pos] = null;
+            distArray[hash].set(distArray[hash].get() - (1 << (MAX_DIST - 1 - pos + hash)));
+            size.getAndDecrement();
+            return removedValue;
 //            } finally {
 //                locks[pos].unlock();
 //            }
@@ -208,9 +208,9 @@ public class ParallelHashTableWithHopscotch<K, V> implements MyConcurrentHashTab
             if ((dist >> i) % 2 == 1) {
 //                locks[hash + MAX_DIST - 1 - i].lock();
 //                try {
-                    if (slots[hash + MAX_DIST - 1 - i].getKey().equals(key)) {
-                        return hash + MAX_DIST - 1 - i;
-                    }
+                if (slots[hash + MAX_DIST - 1 - i].getKey().equals(key)) {
+                    return hash + MAX_DIST - 1 - i;
+                }
 //                } finally {
 //                    locks[hash + MAX_DIST - 1 - i].unlock();
 //                }
