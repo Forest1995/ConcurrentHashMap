@@ -3,42 +3,63 @@ package MyConcurrentHashTable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<K, V> {
 
-    private volatile int slotSize = 8;
-    private volatile int size = 0;
-    private volatile boolean reHashed = false;
+    private volatile AtomicInteger size;
+    private volatile AtomicInteger slotSize;
+    private volatile AtomicBoolean reHashed;
     private volatile HashTableEntry<K, V>[] slots;
     private volatile ReentrantLock[] locks;
-    private volatile ReentrantLock sizeLock;
     private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
-    private final int tryCount = 10;
+    private static final int tryCount = 17;
+    private static final double MAX_LOAD = 0.5;
 
 
     public ParallelHashTableWithCuckoo() {
+        size = new AtomicInteger(0);
+        slotSize = new AtomicInteger(8);
         hashAlgorithmList.add(new HashAlgorithm(10));
         hashAlgorithmList.add(new HashAlgorithm(23));
-        slots = new HashTableEntry[slotSize];
-        locks = new ReentrantLock[slotSize];
-        sizeLock = new ReentrantLock();
-        for (int i = 0; i < slotSize; i++) {
+        slots = new HashTableEntry[slotSize.get()];
+        locks = new ReentrantLock[slotSize.get()];
+        reHashed = new AtomicBoolean(false);
+        for (int i = 0; i < slotSize.get(); i++) {
             locks[i] = new ReentrantLock();
         }
     }
 
     @Override
     public int size() {
-        return size;
+        return size.get();
     }
 
     @Override
     public V get(K key) {
         for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
             int hashCode = hashAlgorithm.hashCode(key);
-            int slotIdx = hashCode & (slotSize - 1);
-            locks[slotIdx].lock();
+            int slotIdx = hashCode & (slotSize.get() - 1);
+
+            while (true) {
+                //until get correct lock
+                while (slotIdx >= locks.length || !locks[slotIdx].tryLock()) {
+                }
+                //get one lock, we can safely check the slot now, because resize() cannot execute.
+                int oldSlotIdx = slotIdx;
+                int curSlotIdx = hashCode & (slotSize.get() - 1);
+                //if not correct,unlock and try again.
+                if (slotIdx != curSlotIdx) { //caused by resizing.
+                    slotIdx = curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                    //lock new slot and then unlock old. To avoid resizing.
+                    locks[oldSlotIdx].unlock();
+                } else {
+                    break;
+                }
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
                     return slots[slotIdx].getValue();
@@ -51,15 +72,31 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public boolean isEmpty() {
-        return size == 0;
+        return size.get()== 0;
     }
 
     @Override
     public boolean containsKey(K key) {
         for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
             int hashCode = hashAlgorithm.hashCode(key);
-            int slotIdx = hashCode & (slotSize - 1);
-            locks[slotIdx].lock();
+            int slotIdx = hashCode & (slotSize.get() - 1);
+            while (true) {
+                //until get correct lock
+                while (slotIdx >= locks.length || !locks[slotIdx].tryLock()) {
+                }
+                //get one lock, we can safely check the slot now, because resize() cannot execute.
+                int oldSlotIdx = slotIdx;
+                int curSlotIdx = hashCode & (slotSize.get() - 1);
+                //if not correct,unlock and try again.
+                if (slotIdx != curSlotIdx) { //caused by resizing.
+                    slotIdx = curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                    //lock new slot and then unlock old. To avoid resizing.
+                    locks[oldSlotIdx].unlock();
+                } else {
+                    break;
+                }
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
                     return true;
@@ -71,19 +108,33 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     }
 
     @Override
-    public synchronized void put(K key, V value) {
+    public  void put(K key, V value) {
         while (true) {
             for (int i = 0; i < tryCount; i++) {
                 for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
                     int hashCode = hashAlgorithm.hashCode(key);
-                    int slotIdx = hashCode & (slotSize - 1);
-                    locks[slotIdx].lock();
+                    int slotIdx = hashCode & (slotSize.get() - 1);
+                    while(true){
+                        //until get correct lock
+                        while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                        //get one lock, we can safely check the slot now, because resize() cannot execute.
+                        int oldSlotIdx=slotIdx;
+                        int curSlotIdx=hashCode&(slotSize.get()-1);
+                        //if not correct,unlock and try again.
+                        if(slotIdx!=curSlotIdx){ //caused by resizing.
+                            slotIdx=curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                            //lock new slot and then unlock old. To avoid resizing.
+                            locks[oldSlotIdx].unlock();
+
+                        }else{
+                            break;
+                        }
+                    }
                     try {
                         if (slots[slotIdx] == null) {
                             slots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
-                            sizeLock.lock();
-                            size++;
-                            sizeLock.unlock();
+                            size.getAndIncrement();
                             return;
                         }
                     } finally {
@@ -95,9 +146,26 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
                 int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
                 int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
-                int slotIdx = hashCode & (slotSize - 1);
+                int slotIdx = hashCode & (slotSize.get() - 1);
 
-                locks[slotIdx].lock();
+                while(true){
+                    //until get correct lock
+                    while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                    //get one lock, we can safely check the slot now, because resize() cannot execute.
+                    int oldSlotIdx=slotIdx;
+                    int curSlotIdx=hashCode&(slotSize.get()-1);
+                    //if not correct,unlock and try again.
+                    if(slotIdx!=curSlotIdx){ //caused by resizing.
+                        slotIdx=curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                        //lock new slot and then unlock old. To avoid resizing.
+                        locks[oldSlotIdx].unlock();
+
+                    }else{
+                        break;
+                    }
+                }
+
                 try {
                     K oldKey = slots[slotIdx].getKey();                //原本表中这个索引对应的entry
                     V oldValue = slots[slotIdx].getValue();
@@ -110,12 +178,12 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
             }
 
-            if (reHashed || size >= slots.length) {               //说明要进行扩容操作了
+            if (reHashed.get() || (size.get() >= slotSize.get()*MAX_LOAD)) {               //说明要进行扩容操作了
                 reSize();
-                reHashed = false;
+                reHashed.set(false);
             } else {
                 ReHash();                                           //重新计算hash值
-                reHashed = true;
+                reHashed .set(true);
             }
         }
     }
@@ -124,15 +192,30 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     public V remove(K key) {
         for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
             int hashCode = hashAlgorithm.hashCode(key);
-            int slotIdx = hashCode & (slotSize - 1);
-            locks[slotIdx].lock();
+            int slotIdx = hashCode & (slotSize.get() - 1);
+
+            while (true) {
+                //until get correct lock
+                while (slotIdx >= locks.length || !locks[slotIdx].tryLock()) {
+                }
+                //get one lock, we can safely check the slot now, because resize() cannot execute.
+                int oldSlotIdx = slotIdx;
+                int curSlotIdx = hashCode & (slotSize.get() - 1);
+                //if not correct,unlock and try again.
+                if (slotIdx != curSlotIdx) { //caused by resizing.
+                    slotIdx = curSlotIdx;
+//                while(slotIdx>=locks.length||!locks[slotIdx].tryLock()){}
+                    //lock new slot and then unlock old. To avoid resizing.
+                    locks[oldSlotIdx].unlock();
+                } else {
+                    break;
+                }
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key)) {
                     V removedValue = slots[slotIdx].getValue();
                     slots[slotIdx] = null;
-                    sizeLock.lock();
-                    size--;
-                    sizeLock.unlock();
+                    size.getAndDecrement();
                     return removedValue;
                 }
             } finally {
@@ -144,16 +227,14 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     @Override
     public void clear() {
-        for (int i = 0; i < slotSize; i++) {
+        for (int i = 0; i < slotSize.get(); i++) {
             locks[i].lock();
         }
-        for (int i = 0; i < slotSize; i++) {
+        for (int i = 0; i < slotSize.get(); i++) {
             slots[i] = null;
         }
-        sizeLock.lock();
-        size = 0;
-        sizeLock.unlock();
-        for (int i = slotSize - 1; i >= 0; i--) {
+        size.set(0);
+        for (int i = slotSize.get() - 1; i >= 0; i--) {
             locks[i].unlock();
         }
     }
@@ -165,9 +246,12 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
 
     private void ReHash() {
+        for (int i = 0; i < slotSize.get(); i++) {
+            locks[i].lock();
+        }
         hashAlgorithmList.clear();
-        int one = new Random().nextInt(1000);
-        int two = new Random().nextInt(1000);
+        int one = new Random().nextInt(100);
+        int two = new Random().nextInt(100);
         two = one == two ? two * 2 : two;
         hashAlgorithmList.add(new HashAlgorithm(one));
         hashAlgorithmList.add(new HashAlgorithm(two));
@@ -175,10 +259,12 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     }
 
     private void reSize() {
-
-        slotSize = 2 * slotSize;
-        locks = new ReentrantLock[slotSize];
-        for (int i = 0; i < slotSize; i++) {
+        for (int i = 0; i < slotSize.get(); i++) {
+            locks[i].lock();
+        }
+        slotSize = new AtomicInteger(slotSize.get()*2);
+        locks = new ReentrantLock[slotSize.get()];
+        for (int i = 0; i < slotSize.get(); i++) {
             locks[i] = new ReentrantLock();
         }
         ReAssignSlots();
@@ -186,13 +272,53 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private void ReAssignSlots() {
         HashTableEntry<K, V>[] oldSlots = slots;
-        slots = new HashTableEntry[slotSize];
-        sizeLock.lock();
-        size = 0;
+        slots = new HashTableEntry[slotSize.get()];
+        size.set(0);
         for (HashTableEntry<K, V> entry : oldSlots) {
             if (entry != null)
-                put(entry.getKey(), entry.getValue());
+                singleThreadPut(entry.getKey(), entry.getValue());
         }
-        sizeLock.unlock();
     }
+
+    private void singleThreadPut(K key, V value) {
+        while (true) {
+            for (int i = 0; i < tryCount; i++) {
+                for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
+                    int hashCode = hashAlgorithm.hashCode(key);
+                    int slotIdx = hashCode & (slotSize.get() - 1);
+                    if (slots[slotIdx] == null) {
+                        slots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
+                        size.getAndIncrement();
+                        return;
+                    }
+
+                }
+                //执行到这说明 每个位置都有人 进行替换操作
+
+                int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
+                int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
+                int slotIdx = hashCode & (slotSize.get() - 1);
+
+                K oldKey = slots[slotIdx].getKey();                //原本表中这个索引对应的entry
+                V oldValue = slots[slotIdx].getValue();
+                slots[slotIdx] = new HashTableEntry(key, value);   //把要插入的entry 放到当前位置上
+                key = oldKey;
+                value = oldValue;                                 //现在就是要插入原来替换掉的值
+            }
+
+            singleThreadReHash();
+        }
+    }
+
+    private void singleThreadReHash() {
+        hashAlgorithmList.clear();
+        int one = new Random().nextInt(100);
+        int two = new Random().nextInt(100);
+        two = one == two ? two * 2 : two;
+        hashAlgorithmList.add(new HashAlgorithm(one));
+        hashAlgorithmList.add(new HashAlgorithm(two));
+        ReAssignSlots();
+    }
+
+
 }
