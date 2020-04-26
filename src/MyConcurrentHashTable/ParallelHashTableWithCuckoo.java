@@ -12,7 +12,6 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     private volatile AtomicInteger size ;
     private volatile HashTableEntry<K, V>[] slots;
     private volatile ReentrantLock[] locks;
-    private volatile ReentrantLock sizeLock;
     private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
     private final int tryCount = 23;
     private static final double MAX_LOAD = 0.1;
@@ -22,11 +21,17 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
         hashAlgorithmList.add(new HashAlgorithm(42589));
         hashAlgorithmList.add(new HashAlgorithm(27361));
         hashAlgorithmList.add(new HashAlgorithm(3626149));
-        slotSize = new AtomicInteger(10);
+        hashAlgorithmList.add(new HashAlgorithm(13));
+        hashAlgorithmList.add(new HashAlgorithm(277));
+        hashAlgorithmList.add(new HashAlgorithm(1311111));
+        hashAlgorithmList.add(new HashAlgorithm(66));
+        hashAlgorithmList.add(new HashAlgorithm(666));
+        hashAlgorithmList.add(new HashAlgorithm(6666));
+
+        slotSize = new AtomicInteger(10000000);
         size = new AtomicInteger(0);
         slots = new HashTableEntry[slotSize.get()];
         locks = new ReentrantLock[slotSize.get()];
-        sizeLock = new ReentrantLock();
         for (int i = 0; i < slotSize.get(); i++) {
             locks[i] = new ReentrantLock();
         }
@@ -185,13 +190,19 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private boolean rehash() {
         hashAlgorithmList.clear();
-        int one = new Random().nextInt();
-        int two = new Random().nextInt();
+        int one = new Random().nextInt(1000);
+        int two = new Random().nextInt(10000);
         two = one == two ? two * 2 : two;
         hashAlgorithmList.add(new HashAlgorithm(181081));
         hashAlgorithmList.add(new HashAlgorithm(374321));
         hashAlgorithmList.add(new HashAlgorithm(one));
         hashAlgorithmList.add(new HashAlgorithm(two));
+        hashAlgorithmList.add(new HashAlgorithm(2*two));
+        hashAlgorithmList.add(new HashAlgorithm(3*two));
+        hashAlgorithmList.add(new HashAlgorithm(5*two));
+        hashAlgorithmList.add(new HashAlgorithm(7*two));
+        hashAlgorithmList.add(new HashAlgorithm(11*two));
+        hashAlgorithmList.add(new HashAlgorithm(13*two));
 
         HashTableEntry <K,V>[] newSlots = new HashTableEntry[slotSize.get()];
         size.set(0);
