@@ -35,7 +35,7 @@ public class ThreadsTestRunableBase implements Runnable {
     public void run() {
         for(int i = 0; i<workload.size(); i++){
 
-            testPutAndContainsKey(workload.get(i));
+            testContainsKey(workload.get(i));
 
         }
 
@@ -47,11 +47,11 @@ public class ThreadsTestRunableBase implements Runnable {
         table.put(key,threadId.toString());
 
     }
-    void testPutAndContainsKey(int index){
+    void testContainsKey(int index){
 //        int key=threadId*128+index;
 
         int key=index;
-        table.put(key,threadId.toString());
+//        table.put(key,threadId.toString());
         boolean query=table.containsKey(key);
 //        System.out.println(query);
         assert query :"not found in "+threadId+ " for searching "+key;
@@ -70,19 +70,25 @@ public class ThreadsTestRunableBase implements Runnable {
         String query=table.get(key);
         assert query!=null :"not found "+key +" in " +threadId;
 
-        query=table.get(key+1);
-        assert query==null:"should not be found!";
+//        query=table.get(key+1);
+//        assert query==null:"should not be found!";
     }
     void testRemove(int index){
-        int key=threadId*128+index;
-
+//        int key=threadId*128+index;
+        int key=index;
         String query=table.remove(key);
-        assert query!=null :"remove not found";
+//        assert query!=null :"remove not found";
 
-        query=table.remove(key+1);
-        assert query==null:"should not be found!";
+//        query=table.remove(key+1);
+//        assert query==null:"should not be found!";
     }
     void testClear(){
         table.clear();
+    }
+    void testIsEmpty(boolean b){
+        assert table.isEmpty() :"should be empty";
+    }
+    void testSize(){
+        assert table.size()>=workload.size();
     }
 }

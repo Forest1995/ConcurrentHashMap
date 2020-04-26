@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V> {
     private volatile int slotSize=8;
     private volatile int size=0;
-    private boolean isResizing;
+//    private boolean isResizing;
     private volatile ArrayList<LinkedList<HashTableEntry<K,V>>> slots;
     private volatile ReentrantLock[] locks;
     private ReentrantLock sizeLock;
@@ -311,6 +311,9 @@ public class ParallelHashMapWIthChains<K,V> implements MyConcurrentHashTable<K,V
 
     @Override
     public void clear() {
+        if(size==0){
+            return;
+        }
         for(int i=0;i<slotSize;i++){
             locks[i].lock();
         }

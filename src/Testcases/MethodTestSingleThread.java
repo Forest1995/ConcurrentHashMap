@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MethodTestSingleThread {
     private int size=1000000;
     MyConcurrentHashTable<Integer,String> initialize(int size){
-        MyConcurrentHashTable<Integer,String> table= new ParallelHashMapWIthChains<Integer, String>();
+        MyConcurrentHashTable<Integer,String> table= new ParallelHashTableWithCuckoo<Integer, String>();
         for(int i=0;i<size;i++){
             table.put(i,""+i);
         }
@@ -33,7 +33,7 @@ class MethodTestSingleThread {
 
     @org.junit.jupiter.api.Test
     void isEmpty() {
-//        int size=0;
+        int size=0;
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
         assertTrue(table.isEmpty());
         table.put(1,"1");

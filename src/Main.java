@@ -5,6 +5,7 @@ import java.util.Random;
 import java.util.concurrent.*;
 
 import MyConcurrentHashTable.*;
+import Testcases.*;
 import ThreadsTest.ThreadsTest1;
 import ThreadsTest.ThreadsTest2;
 
@@ -56,58 +57,144 @@ public class Main {
         int numThread=4;
         int total_workload=1000000;
         int workPerThread=total_workload/numThread;
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
-
-
-    //prepare data
-
-        Random random=new Random();
         ArrayList<ArrayList<Integer>> workloads=generateDifferentInt(numThread,workPerThread);
-//        ArrayList<ArrayList<Integer>> workloads=new ArrayList<ArrayList<Integer>>();
-//        for(int i=0;i<numThread;i++){
-//            ArrayList<Integer> workload=new ArrayList<Integer>();
-//            for(int j=0;j<workPerThread;j++){
-//                workload.add(random.nextInt());
-//            }
-//            workloads.add(workload);
-//
-//        }
 
-        //start inserting data into map
+        System.out.println("before testing, warmup without cache");
+        testPut(numThread,map,workloads,total_workload); //without cache
+        testClear(numThread,map,workloads,total_workload);
 
+        System.out.println("------------start performance test part1------------\n\n");
+        //prepare data
+        testPut(numThread,map,workloads,total_workload);//with cache
+        testContainsKey(numThread,map,workloads,total_workload);
+        testSize(numThread,map,workloads,total_workload);
+        testRemove(numThread,map,workloads,total_workload);
 
-        for(int i=0;i<numThread;i++){
-            Runnable runable=new ThreadsTest1(i,map,workloads.get(i));
-            executor.execute(runable);
-        }
-        executor.shutdown();
-        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
-            System.out.println("Not yet. Still waiting for termination");
-        }
+        System.out.println("------------start performance test part2------------\n\n");
+        testIsEmpty(numThread,map,workloads,total_workload);
+        testPut(numThread,map,workloads,total_workload);
+        testGet(numThread,map,workloads,total_workload);
+        testClear(numThread,map,workloads,total_workload);
+        //test performance of put
+
 
     //prepare job
-        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
-        Runnable[] jobList=new Runnable[numThread];
-        //start running
+//
+//        System.out.println(map.size());
+//        System.out.println(estimatedTime/1000/1000+"ms");
+    }
+    static void  testPut(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
         long startTime = System.nanoTime();
-        System.out.println("data ready, start running");
 
         for(int i=0;i<numThread;i++){
-            jobList[i]=new ThreadsTest2(i,map,workloads.get(i));
-
-        }
-        for(int i=0;i<numThread;i++){
-            executor.execute(jobList[i]);
+            ThreadsTestRunableBase runnable=new ThreadTestPut(i,map,workloads.get(i));
+            executor.execute(runnable);
         }
 
         executor.shutdown();
         while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
             System.out.println("Not yet. Still waiting for termination");
         }
-
         long estimatedTime = System.nanoTime() - startTime;
-//        System.out.println(map.toString());;
-        System.out.println(map.size());
-        System.out.println(estimatedTime/1000/1000+"ms");
+        System.out.println(estimatedTime/1000/1000+"ms for put() with "+numThread+" threads, TotalWorkload:"+total_workload);
     }
+    static void  testContainsKey(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestContainsKey(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for ContainsKey() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+    static void  testSize(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestSize(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for size() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+    static void  testGet(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestGet(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for get() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+    static void  testRemove(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestRemove(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for remove() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+
+    static void  testClear(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestClear(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for clear() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+    static void  testIsEmpty(int numThread, MyConcurrentHashTable<Integer,String> map, ArrayList<ArrayList<Integer>> workloads, int total_workload) throws InterruptedException {
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThread);
+        long startTime = System.nanoTime();
+
+        for(int i=0;i<numThread;i++){
+            ThreadsTestRunableBase runnable=new ThreadTestIsEmpty(i,map,workloads.get(i));
+            executor.execute(runnable);
+        }
+
+        executor.shutdown();
+        while (!executor.awaitTermination(24L, TimeUnit.HOURS)) {
+            System.out.println("Not yet. Still waiting for termination");
+        }
+        long estimatedTime = System.nanoTime() - startTime;
+        System.out.println(estimatedTime/1000/1000+"ms for isEmpty() with "+numThread+" threads, TotalWorkload:"+total_workload);
+    }
+
 }

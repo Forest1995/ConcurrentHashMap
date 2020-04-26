@@ -20,7 +20,7 @@ class MethodTestMultiThread {
     ArrayList<ArrayList<Integer>> workloads;
     int workPerThread;
     MyConcurrentHashTable<Integer,String> initialize(int size){
-        MyConcurrentHashTable<Integer,String> table= new ParallelHashMapWIthChains<Integer, String>();//modify table type here.
+        MyConcurrentHashTable<Integer,String> table= new ParallelHashMapWIthChainsLockFree<Integer, String>();//modify table type here.
         for(int i=0;i<size;i++){
             table.put(i,""+i);
         }
@@ -74,7 +74,7 @@ class MethodTestMultiThread {
 
         //prepare data
 
-        workloads=generateDifferentInt(numThread,workPerThread);
+        workloads=getWorkLoads();
 //        ArrayList<ArrayList<Integer>> workloads= generateInt(numThread,workPerThread);
 
 
@@ -97,44 +97,44 @@ class MethodTestMultiThread {
         long estimatedTime = System.nanoTime() - startTime;
 //        System.out.println(map.toString());;
 //        System.out.println(map.size());
-        System.out.println(estimatedTime/1000/1000+"ms");
+        System.out.println(estimatedTime/1000/1000+"ms in "+runnable.getClass().getName()+" numThreads: "+numThread+" totalWorkload:"+total_workload);
     }
     @org.junit.jupiter.api.Test
-    void size() {
+    void size() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
 //        int size=1000000;
-
+        int size=0;
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
-        assertEquals(table.size(), size);
+        poolTest(table,new ThreadTestPut(-1,null,null));
+        poolTest(table,new ThreadTestSize(-1,null,null));
+        assertTrue(table.size()==this.size);
     }
 
     @org.junit.jupiter.api.Test
-    void get() {
+    void get() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
 //        int size=1000000;
+        int size=0;
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
-        for(int i=0;i<size;i++){
-            String value=table.get(i);
-            assertEquals(value, "" + i);
-        }
+        poolTest(table,new ThreadTestPut(-1,null,null));
+        poolTest(table,new ThreadTestGet(-1,null,null));
+        assertTrue(table.size()==this.size);
     }
 
     @org.junit.jupiter.api.Test
-    void isEmpty() {
-//        int size=0;
+    void isEmpty() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        int size=0;
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
+        poolTest(table,new ThreadTestIsEmpty(-1,null,null));
         assertTrue(table.isEmpty());
-        table.put(1,"1");
-        assertFalse(table.isEmpty());
-        table.remove(1);
-        assertTrue(table.isEmpty());
+
     }
 
     @org.junit.jupiter.api.Test
-    void containsKey() {
+    void containsKey() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
 //        int size=1000000;
-        MyConcurrentHashTable<Integer,String>  table=initialize(size);
-        for(int i=0;i<size;i++){
-            assertTrue(table.containsKey(i));
-        }
+        MyConcurrentHashTable<Integer,String>  table=initialize(0);
+        poolTest(table,new ThreadTestPut(-1,null,null));
+        poolTest(table,new ThreadTestContainsKey(-1,null,null));
+        assertEquals(total_workload,table.size());
 
     }
 
@@ -143,42 +143,60 @@ class MethodTestMultiThread {
 //        int size=1000000;
         MyConcurrentHashTable<Integer,String>  table=initialize(0);
         poolTest(table,new ThreadTestPut(-1,null,null));
+        poolTest(table,new ThreadTestContainsKey(-1,null,null));
+        //put again
+        poolTest(table,new ThreadTestPut(-1,null,null));
+        poolTest(table,new ThreadTestContainsKey(-1,null,null));
+
+        assertEquals(total_workload,table.size());
+    }
+
+    @org.junit.jupiter.api.Test
+    void remove() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+//        int size=1000000;
+        MyConcurrentHashTable<Integer,String>  table=initialize(0);
+        getWorkLoads();
+
+        poolTest(table,new ThreadTestPut(-1,null,null));
+//        System.out.println(table.size());
         for(ArrayList<Integer> workload :workloads){
             for(Integer i : workload){
                 assertTrue(table.containsKey(i));
             }
         }
-        assertEquals(total_workload,table.size());
+
+        poolTest(table,new ThreadTestRemove(-1,null,null));
+
+        for(ArrayList<Integer> workload :workloads){
+            for(Integer i : workload){
+                assertFalse(table.containsKey(i));
+            }
+        }
+        assertEquals(0,table.size());
     }
 
     @org.junit.jupiter.api.Test
-    void remove() {
+    void clear() throws InterruptedException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
 //        int size=1000000;
-        MyConcurrentHashTable<Integer,String>  table=initialize(size);
-        for(int i=0;i<size;i++){
-            assertTrue(table.containsKey(i));
-        }
-        for(int i=0;i<size;i++){
-            table.remove(i);
-        }
-        for(int i=0;i<size;i++){
-            assertFalse(table.containsKey(i));
-        }
-        assertEquals(table.size(),0);
-    }
+        MyConcurrentHashTable<Integer,String>  table=initialize(0);
+        getWorkLoads();
 
-    @org.junit.jupiter.api.Test
-    void clear() {
-//        int size=1000000;
-        MyConcurrentHashTable<Integer,String>  table=initialize(size);
-        for(int i=0;i<size;i++){
-            assertTrue(table.containsKey(i));
+        poolTest(table,new ThreadTestPut(-1,null,null));
+//        System.out.println(table.size());
+        for(ArrayList<Integer> workload :workloads){
+            for(Integer i : workload){
+                assertTrue(table.containsKey(i));
+            }
         }
-        table.clear();
-        for(int i=0;i<size;i++){
-            assertFalse(table.containsKey(i));
+//        System.out.println("finish add");
+        poolTest(table,new ThreadTestClear(-1,null,null));
+
+        for(ArrayList<Integer> workload :workloads){
+            for(Integer i : workload){
+                assertFalse(table.containsKey(i));
+            }
         }
-        assertEquals(table.size(),0);
+        assertEquals(0,table.size());
 
     }
 

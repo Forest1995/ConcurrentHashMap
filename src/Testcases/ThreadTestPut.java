@@ -16,8 +16,8 @@ public class ThreadTestPut extends ThreadsTestRunableBase {
     }
     @Override
     public void run() {
-        for(int i = 0; i<workload.size(); i++){
-            testPut(workload.get(i));
+        for (Integer integer : workload) {
+            testPut(integer);
         }
 
     }
