@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHashTable<K, V> {
     private volatile AtomicInteger slotSize ;
@@ -14,7 +13,6 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
     private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
     private final int tryCount = 23;
     private static final double MAX_LOAD = 0.1;
-    private volatile boolean reHashed = false;
     private volatile AtomicBoolean[] slotStatus;
     private volatile AtomicBoolean putStatus;
 
