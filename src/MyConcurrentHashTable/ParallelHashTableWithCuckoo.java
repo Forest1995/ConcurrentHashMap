@@ -14,13 +14,14 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
     private volatile ReentrantLock[] locks;
     private volatile ReentrantLock sizeLock;
     private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
-    private final int tryCount = 100;
+    private final int tryCount = 23;
     private static final double MAX_LOAD = 0.1;
 
     public ParallelHashTableWithCuckoo() {
         hashAlgorithmList.add(new HashAlgorithm(126001));
         hashAlgorithmList.add(new HashAlgorithm(42589));
         hashAlgorithmList.add(new HashAlgorithm(27361));
+        hashAlgorithmList.add(new HashAlgorithm(3626149));
         slotSize = new AtomicInteger(10);
         size = new AtomicInteger(0);
         slots = new HashTableEntry[slotSize.get()];
@@ -184,12 +185,14 @@ public class ParallelHashTableWithCuckoo<K, V> implements MyConcurrentHashTable<
 
     private boolean rehash() {
         hashAlgorithmList.clear();
-        int one = 181081;
+        int one = new Random().nextInt();
         int two = new Random().nextInt();
         two = one == two ? two * 2 : two;
+        hashAlgorithmList.add(new HashAlgorithm(181081));
+        hashAlgorithmList.add(new HashAlgorithm(374321));
         hashAlgorithmList.add(new HashAlgorithm(one));
         hashAlgorithmList.add(new HashAlgorithm(two));
-        hashAlgorithmList.add(new HashAlgorithm(2* two));
+
         HashTableEntry <K,V>[] newSlots = new HashTableEntry[slotSize.get()];
         size.set(0);
         for (HashTableEntry<K, V> entry : slots) {
