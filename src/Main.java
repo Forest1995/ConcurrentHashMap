@@ -27,50 +27,50 @@ public class Main {
 
     }
     public static void simpleTest(){
-        ParallelHashMapWIthChains<Integer,String> map=new ParallelHashMapWIthChains<Integer, String>();
+        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithCuckoo<Integer, String>();
         for(Integer i=0;i<10;i++){
             map.put(i,i.toString());
         }
         System.out.println(map.toString());
     }
+
     public static ArrayList<ArrayList<Integer>> generateDifferentInt(int numThread, int size){
         ArrayList<ArrayList<Integer>> result=new ArrayList<>();
         Random random=new Random();
-        MyConcurrentHashTable<Integer,Integer> map=new ParallelHashMapWIthChains<Integer, Integer>();
-//        HashSet<Integer> set=new HashSet<>();
+        HashSet<Integer> set=new HashSet<>();
         for(int k=0;k<numThread;k++){
             result.add(new ArrayList<>());
             for(int i=0;i<size;i++){
                 int num=random.nextInt();
-                while(map.containsKey(num)){
+                while(set.contains(num)){
                     num=random.nextInt();
                 }
                 result.get(k).add(num);
-                map.put(num,num);
+                set.add(num);
             }
         }
         return result;
     }
     public static void poolTest() throws InterruptedException {
-        MyConcurrentHashTable<Integer,String> map=new ParallelHashMapWIthChainsLockFree<Integer, String>();
+        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithHopscotch<Integer, String>();
 //        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithCuckoo<Integer, String>();
-        int numThread=4;
+        int numThread=1;
         int total_workload=1000000;
         int workPerThread=total_workload/numThread;
         ArrayList<ArrayList<Integer>> workloads=generateDifferentInt(numThread,workPerThread);
 
-        System.out.println("before testing, warmup without cache");
+        System.out.println("before testing, warmup without cache, without any resize() before");
         testPut(numThread,map,workloads,total_workload); //without cache
         testClear(numThread,map,workloads,total_workload);
 
-        System.out.println("------------start performance test part1------------\n\n");
+        System.out.println("------------start performance test part1 for "+map.getClass().getName()+"------------\n\n");
         //prepare data
         testPut(numThread,map,workloads,total_workload);//with cache
         testContainsKey(numThread,map,workloads,total_workload);
         testSize(numThread,map,workloads,total_workload);
         testRemove(numThread,map,workloads,total_workload);
 
-        System.out.println("------------start performance test part2------------\n\n");
+        System.out.println("------------start performance test part2 for "+map.getClass().getName()+"------------\n\n");
         testIsEmpty(numThread,map,workloads,total_workload);
         testPut(numThread,map,workloads,total_workload);
         testGet(numThread,map,workloads,total_workload);

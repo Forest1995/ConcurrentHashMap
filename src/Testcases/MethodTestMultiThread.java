@@ -14,13 +14,13 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MethodTestMultiThread {
-    private int size=1000000;
+//    private int size=1000000;
     private int numThread=4;
-    private int total_workload=1000000;
+    private int total_workload=100000;
     ArrayList<ArrayList<Integer>> workloads;
     int workPerThread;
     MyConcurrentHashTable<Integer,String> initialize(int size){
-        MyConcurrentHashTable<Integer,String> table= new ParallelHashMapWIthChainsLockFree<Integer, String>();//modify table type here.
+        MyConcurrentHashTable<Integer,String> table= new ParallelHashTableWithCuckoo<Integer, String>();//modify table type here.
         for(int i=0;i<size;i++){
             table.put(i,""+i);
         }
@@ -106,7 +106,7 @@ class MethodTestMultiThread {
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
         poolTest(table,new ThreadTestPut(-1,null,null));
         poolTest(table,new ThreadTestSize(-1,null,null));
-        assertTrue(table.size()==this.size);
+        assertTrue(table.size()==total_workload);
     }
 
     @org.junit.jupiter.api.Test
@@ -116,7 +116,7 @@ class MethodTestMultiThread {
         MyConcurrentHashTable<Integer,String>  table=initialize(size);
         poolTest(table,new ThreadTestPut(-1,null,null));
         poolTest(table,new ThreadTestGet(-1,null,null));
-        assertTrue(table.size()==this.size);
+        assertTrue(table.size()==total_workload);
     }
 
     @org.junit.jupiter.api.Test
