@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHashTable<K, V> {
-    private volatile AtomicInteger slotSize ;
-    private volatile AtomicInteger size ;
+    private volatile AtomicInteger slotSize;
+    private volatile AtomicInteger size;
     private volatile HashTableEntry<K, V>[] slots;
     private volatile List<HashAlgorithm> hashAlgorithmList = new ArrayList<HashAlgorithm>();
     private final int tryCount = 23;
@@ -50,7 +50,8 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
             if (slotIdx < 0) {
                 slotIdx += slotSize.get();
             }
-            while (!slotStatus[slotIdx].compareAndSet(false, true)) {}
+            while (!slotStatus[slotIdx].compareAndSet(false, true)) {
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
                     return slots[slotIdx].getValue();
@@ -77,7 +78,8 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
             if (slotIdx < 0) {
                 slotIdx += slotSize.get();
             }
-            while (!slotStatus[slotIdx].compareAndSet(false, true)) {}
+            while (!slotStatus[slotIdx].compareAndSet(false, true)) {
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key))
                     return true;
@@ -85,7 +87,6 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
                 System.err.println("[containsKey err]" + e.getMessage());
                 return false;
             } finally {
-//                System.out.println("containskey success");
                 slotStatus[slotIdx].set(false);
             }
         }
@@ -94,27 +95,28 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
 
     @Override
     public void put(K key, V value) {
-        while (!putStatus.compareAndSet(false, true)) {}
-        if (size.get() >=  slots.length * MAX_LOAD)
+        while (!putStatus.compareAndSet(false, true)) {
+        }
+        if (size.get() >= slots.length * MAX_LOAD)
             resize();
         try {
             while (true) {
                 for (int i = 0; i < tryCount; i++) {
-                    for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
+                    for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
                         int hashCode = hashAlgorithm.hashCode(key);
                         int slotIdx = hashCode % slotSize.get();
                         if (slotIdx < 0) {
                             slotIdx += slotSize.get();
                         }
-                        while (!slotStatus[slotIdx].compareAndSet(false, true)) { }
+                        while (!slotStatus[slotIdx].compareAndSet(false, true)) {
+                        }
                         try {
                             if (slots[slotIdx] == null) {
-                                slots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
+                                slots[slotIdx] = new HashTableEntry(key, value);
                                 size.getAndIncrement();
                                 return;
-                            }
-                            else {
-                                if(slots[slotIdx].getKey().equals(key)){
+                            } else {
+                                if (slots[slotIdx].getKey().equals(key)) {
                                     slots[slotIdx].setValue(value);
                                     return;
                                 }
@@ -127,34 +129,33 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
                         }
                     }
 
-                    //执行到这说明 每个位置都有人 进行替换操作
 
-                    int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
+                    int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());
                     int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
                     int slotIdx = hashCode % slotSize.get();
                     if (slotIdx < 0) {
                         slotIdx += slotSize.get();
                     }
 
-                    while (!slotStatus[slotIdx].compareAndSet(false, true)) { }
+                    while (!slotStatus[slotIdx].compareAndSet(false, true)) {
+                    }
                     try {
-                        K oldKey = slots[slotIdx].getKey();                //原本表中这个索引对应的entry
+                        K oldKey = slots[slotIdx].getKey();
                         V oldValue = slots[slotIdx].getValue();
-                        slots[slotIdx] = new HashTableEntry(key, value);   //把要插入的entry 放到当前位置上
+                        slots[slotIdx] = new HashTableEntry(key, value);
                         key = oldKey;
-                        value = oldValue;                                 //现在就是要插入原来替换掉的值
+                        value = oldValue;
                     } finally {
                         slotStatus[slotIdx].set(false);
                     }
 
                 }
                 boolean success = rehash();
-                if(!success){
+                if (!success) {
                     resize();
                 }
             }
-        }
-        finally {
+        } finally {
             putStatus.set(false);
         }
     }
@@ -167,7 +168,8 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
             if (slotIdx < 0) {
                 slotIdx += slotSize.get();
             }
-            while (!slotStatus[slotIdx].compareAndSet(false, true)) { }
+            while (!slotStatus[slotIdx].compareAndSet(false, true)) {
+            }
             try {
                 if (slots[slotIdx] != null && slots[slotIdx].getKey().equals(key)) {
                     V removedValue = slots[slotIdx].getValue();
@@ -188,11 +190,12 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
 
     @Override
     public void clear() {
-        if(size.get()==0){
+        if (size.get() == 0) {
             return;
         }
         for (int i = 0; i < slotSize.get(); i++) {
-            while (!slotStatus[i].compareAndSet(false, true)) {}
+            while (!slotStatus[i].compareAndSet(false, true)) {
+            }
         }
         for (int i = 0; i < slotSize.get(); i++) {
             slots[i] = null;
@@ -217,18 +220,18 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
         hashAlgorithmList.add(new HashAlgorithm(374321));
         hashAlgorithmList.add(new HashAlgorithm(one));
         hashAlgorithmList.add(new HashAlgorithm(two));
-        hashAlgorithmList.add(new HashAlgorithm(2*two));
-        hashAlgorithmList.add(new HashAlgorithm(3*two));
-        hashAlgorithmList.add(new HashAlgorithm(5*two));
-        hashAlgorithmList.add(new HashAlgorithm(7*two));
-        hashAlgorithmList.add(new HashAlgorithm(11*two));
-        hashAlgorithmList.add(new HashAlgorithm(13*two));
+        hashAlgorithmList.add(new HashAlgorithm(2 * two));
+        hashAlgorithmList.add(new HashAlgorithm(3 * two));
+        hashAlgorithmList.add(new HashAlgorithm(5 * two));
+        hashAlgorithmList.add(new HashAlgorithm(7 * two));
+        hashAlgorithmList.add(new HashAlgorithm(11 * two));
+        hashAlgorithmList.add(new HashAlgorithm(13 * two));
 
-        HashTableEntry <K,V>[] newSlots = new HashTableEntry[slotSize.get()];
+        HashTableEntry<K, V>[] newSlots = new HashTableEntry[slotSize.get()];
         size.set(0);
         for (HashTableEntry<K, V> entry : slots) {
             if (entry != null)
-                if(!addToSlot(entry.getKey(), entry.getValue(), newSlots)){
+                if (!addToSlot(entry.getKey(), entry.getValue(), newSlots)) {
                     return false;
                 }
         }
@@ -238,11 +241,11 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
 
     private void resize() {
         slotSize.set(4 * slotSize.get());
-        AtomicBoolean [] newSlotsStatus = new AtomicBoolean[slotSize.get()];
+        AtomicBoolean[] newSlotsStatus = new AtomicBoolean[slotSize.get()];
         for (int i = 0; i < slotSize.get(); i++) {
             newSlotsStatus[i] = new AtomicBoolean(false);
         }
-        HashTableEntry <K,V>[] newSlots = new HashTableEntry[slotSize.get()];
+        HashTableEntry<K, V>[] newSlots = new HashTableEntry[slotSize.get()];
         size.set(0);
         for (HashTableEntry<K, V> entry : slots) {
             if (entry != null)
@@ -251,16 +254,17 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
         slots = newSlots;
         slotStatus = newSlotsStatus;
     }
-    private boolean addToSlot(K key, V value, HashTableEntry<K,V> [] newSlots) {
+
+    private boolean addToSlot(K key, V value, HashTableEntry<K, V>[] newSlots) {
         for (int i = 0; i < tryCount; i++) {
-            for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {    //遍历算法集合 计算index值，
+            for (HashAlgorithm hashAlgorithm : hashAlgorithmList) {
                 int hashCode = hashAlgorithm.hashCode(key);
                 int slotIdx = hashCode % slotSize.get();
                 if (slotIdx < 0) {
                     slotIdx += slotSize.get();
                 }
                 if (newSlots[slotIdx] == null) {
-                    newSlots[slotIdx] = new HashTableEntry(key, value);//当表中索引无值，将元素放到表中
+                    newSlots[slotIdx] = new HashTableEntry(key, value);
                     size.getAndIncrement();
                     return true;
                 } else {
@@ -270,19 +274,18 @@ public class ParallelHashTableWithCuckooLockFree<K, V> implements MyConcurrentHa
                     }
                 }
             }
-            //执行到这说明 每个位置都有人 进行替换操作
-            int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());//随机选取一个函数
+            int hashAlgorithmListIndex = new Random().nextInt(hashAlgorithmList.size());
             int hashCode = hashAlgorithmList.get(hashAlgorithmListIndex).hashCode(key);
             int slotIdx = hashCode % slotSize.get();
             if (slotIdx < 0) {
                 slotIdx += slotSize.get();
             }
 
-            K oldKey = newSlots[slotIdx].getKey();                //原本表中这个索引对应的entry
+            K oldKey = newSlots[slotIdx].getKey();
             V oldValue = newSlots[slotIdx].getValue();
-            newSlots[slotIdx] = new HashTableEntry(key, value);   //把要插入的entry 放到当前位置上
+            newSlots[slotIdx] = new HashTableEntry(key, value);
             key = oldKey;
-            value = oldValue;                                 //现在就是要插入原来替换掉的值
+            value = oldValue;
         }
         return false;
     }

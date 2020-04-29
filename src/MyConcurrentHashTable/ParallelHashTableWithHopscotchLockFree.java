@@ -3,7 +3,7 @@ package MyConcurrentHashTable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurrentHashTable<K, V> {
+public class ParallelHashTableWithHopscotchLockFree<K, V> implements MyConcurrentHashTable<K, V> {
     private volatile AtomicInteger size;
     private volatile AtomicInteger slotSize;
     private volatile HashTableEntry<K, V>[] slots;
@@ -38,7 +38,8 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
         for (int i = 0; i < MAX_DIST; i++) {
             int dist = distArray[hash].get();
             if ((dist >> i) % 2 == 1) {
-                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {}
+                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {
+                }
                 try {
                     if (slots[hash + MAX_DIST - 1 - i] != null && slots[hash + MAX_DIST - 1 - i].getKey().equals(key)) {
                         return slots[hash + MAX_DIST - 1 - i].getValue();
@@ -62,7 +63,8 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
         for (int i = 0; i < MAX_DIST; i++) {
             int dist = distArray[hash].get();
             if ((dist >> i) % 2 == 1) {
-                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {}
+                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {
+                }
                 try {
                     if (slots[hash + MAX_DIST - 1 - i] != null && slots[hash + MAX_DIST - 1 - i].getKey().equals(key)) {
                         return true;
@@ -77,14 +79,13 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
 
     @Override
     public void put(K key, V value) {
-        while (!putStatus.compareAndSet(false, true)) {}
+        while (!putStatus.compareAndSet(false, true)) {
+        }
 
         if (size.get() >= (slots.length * MAX_LOAD)) {
             resize();
         }
         try {
-
-
             while (true) {
                 int pos = hash(key);
                 int originalPos = pos;
@@ -107,16 +108,15 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
                     }
                     try {
                         slots[pos] = new HashTableEntry<K, V>(key, value);
-                        distArray[originalPos].set(distArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));//修改距离标志
+                        distArray[originalPos].set(distArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));
                         size.getAndIncrement();
                         return;
                     } finally {
                         slotStatus[pos].set(false);
                     }
                 }
-                //如果不在距离内，调整位置直至符合距离要求
                 while (true) {
-                    boolean isSwaped = false;//设置标志判断是否调整位置成功，便于二次循环的跳转
+                    boolean isSwaped = false;
                     for (int i = MAX_DIST - 1; i > 0; i--) {
                         for (int j = MAX_DIST - 1; j > MAX_DIST - 1 - i; j--) {
                             if ((distArray[pos - i].get() >> j) % 2 == 1) {
@@ -126,27 +126,24 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
                                 }
                                 try {
                                     slots[pos] = slots[pos - i + MAX_DIST - 1 - j];
-                                    distArray[pos - i].set(distArray[pos - i].get() - (1 << j) + (1 << (MAX_DIST - i - 1))); //修改被调整值的距离标志
+                                    distArray[pos - i].set(distArray[pos - i].get() - (1 << j) + (1 << (MAX_DIST - i - 1)));
                                     pos = pos - i + MAX_DIST - 1 - j;
                                 } finally {
                                     slotStatus[pos].set(false);
                                     slotStatus[pos - i + MAX_DIST - 1 - j].set(false);
                                 }
-                                //如果在距离内，直接插入并修改距离标志
                                 if (pos <= originalPos + MAX_DIST - 1) {
                                     while (!slotStatus[pos].compareAndSet(false, true)) {
                                     }
                                     try {
                                         slots[pos] = new HashTableEntry<K, V>(key, value);
-                                        distArray[originalPos].set(distArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));//修改距离标志
+                                        distArray[originalPos].set(distArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));
                                         size.getAndIncrement();
                                         return;
                                     } finally {
                                         slotStatus[pos].set(false);
                                     }
-                                }
-                                //如果不在距离标志内
-                                else {
+                                } else {
                                     isSwaped = true;
                                     break;
                                 }
@@ -156,15 +153,13 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
                             break;
                         }
                     }
-                    //如果无法调整位置
                     if (!isSwaped) {
                         break;
                     }
                 }
                 resize();
             }
-        }
-        finally {
+        } finally {
             putStatus.set(false);
         }
     }
@@ -214,22 +209,22 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
 
         if (pos <= originalPos + MAX_DIST - 1) {
             newSlots[pos] = new HashTableEntry<K, V>(key, value);
-            newDistArray[originalPos].set(newDistArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));//修改距离标志
+            newDistArray[originalPos].set(newDistArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));
             size.getAndIncrement();
             return true;
         }
         while (true) {
-            boolean isSwaped = false;//设置标志判断是否调整位置成功，便于二次循环的跳转
+            boolean isSwaped = false;
             for (int i = MAX_DIST - 1; i > 0; i--) {
                 for (int j = MAX_DIST - 1; j > MAX_DIST - 1 - i; j--) {
                     if ((newDistArray[pos - i].get() >> j) % 2 == 1) {
-                        HashTableEntry<K, V> entry = newSlots[pos - i + MAX_DIST - 1 - j];//获得需要被调整的散列位置
+                        HashTableEntry<K, V> entry = newSlots[pos - i + MAX_DIST - 1 - j];
                         newSlots[pos] = entry;
-                        newDistArray[pos - i].set(newDistArray[pos - i].get() - (1 << j) + (1 << (MAX_DIST - i - 1))); //修改被调整值的距离标志
+                        newDistArray[pos - i].set(newDistArray[pos - i].get() - (1 << j) + (1 << (MAX_DIST - i - 1)));
                         pos = pos - i + MAX_DIST - 1 - j;
                         if (pos <= originalPos + MAX_DIST - 1) {
                             newSlots[pos] = new HashTableEntry<K, V>(key, value);
-                            newDistArray[originalPos].set(newDistArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));//修改距离标志
+                            newDistArray[originalPos].set(newDistArray[originalPos].get() + (1 << (MAX_DIST - 1 - pos + originalPos)));
                             size.getAndIncrement();
                             return true;
                         } else {
@@ -255,7 +250,8 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
         for (int i = 0; i < MAX_DIST; i++) {
             int dist = distArray[hash].get();
             if ((dist >> i) % 2 == 1) {
-                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {}
+                while (!slotStatus[hash + MAX_DIST - 1 - i].compareAndSet(false, true)) {
+                }
                 try {
                     if (slots[hash + MAX_DIST - 1 - i] != null && slots[hash + MAX_DIST - 1 - i].getKey().equals(key)) {
                         int pos = hash + MAX_DIST - 1 - i;
@@ -278,7 +274,8 @@ public class ParallelHashTableWithHopscotchLockFree <K, V> implements MyConcurre
         if (size.get() == 0)
             return;
         for (int i = 0; i < slotSize.get(); i++) {
-            while (!slotStatus[i].compareAndSet(false, true)) {}
+            while (!slotStatus[i].compareAndSet(false, true)) {
+            }
         }
         for (int i = 0; i < slotSize.get(); i++) {
             slots[i] = null;
