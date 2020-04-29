@@ -1,14 +1,13 @@
 package Testcases;
 
 import MyConcurrentHashTable.*;
-import org.junit.Assert;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MethodTestSingleThread {
     private int size=1000000;
     MyConcurrentHashTable<Integer,String> initialize(int size){
-        MyConcurrentHashTable<Integer,String> table= new ParallelHashTableWithCuckoo<Integer, String>();
+        MyConcurrentHashTable<Integer,String> table= new ParallelHashTableWithHopscotch<Integer, String>();
         for(int i=0;i<size;i++){
             table.put(i,""+i);
         }

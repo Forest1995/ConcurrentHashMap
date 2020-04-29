@@ -1,7 +1,5 @@
 package MyConcurrentHashTable;
 
-import com.sun.tools.classfile.ConstantPool;
-import com.sun.tools.javac.util.Assert;
 
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -50,7 +48,6 @@ public class ParallelHashMapWIthChains<K, V> implements MyConcurrentHashTable<K,
             if (slotIdx != curSlotIdx) { //caused by resizing.
                 slotIdx = curSlotIdx;
                 locks[oldSlotIdx].unlock();//unlock wrong slotIdx
-
             } else {
                 //it didn't change. safe.
                 break;

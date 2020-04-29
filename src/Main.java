@@ -52,8 +52,8 @@ public class Main {
         return result;
     }
     public static void poolTest() throws InterruptedException {
-        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithHopscotch<Integer, String>();
-//        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithCuckoo<Integer, String>();
+//        MyConcurrentHashTable<Integer,String> map=new ParallelHashTableWithHopscotchLockFree<Integer, String>();
+        MyConcurrentHashTable<Integer,String> map=new ParallelHashMapWIthChains<Integer, String>();
         int numThread=1;
         int total_workload=1000000;
         int workPerThread=total_workload/numThread;
